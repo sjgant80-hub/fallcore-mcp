@@ -1,4 +1,4 @@
-# ◊·κ=1 · fallcore-mcp
+# fallcore-mcp
 
 **The 5th turtle. `mcp(api)` for FallCore.**
 
@@ -128,4 +128,3 @@ Part of the [Fall* estate](https://github.com/sjgant80-hub) · pairs with [FallC
 
 MIT licensed.
 
-◊·κ=1
