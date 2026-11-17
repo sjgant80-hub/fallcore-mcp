@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fallcore-mcp</title>
+<meta name="description" content="An MCP server that gives an AI agent eight tools for your own model: a FallCore proxy or plain Ollama. MIT, tested end to end, gated by witness.">
+<link rel="canonical" href="https://sjgant80-hub.github.io/fallcore-mcp/">
+<style>
+:root { --bg: #fbfbf8; --ink: #1d1f1e; --dim: #5d625f; --line: #d9dcd6; --card: #ffffff; --accent: #1f6f4a; --warn: #8a5a00; --bad: #a2312b; --code: #f1f2ed; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #141615; --ink: #e8eae6; --dim: #a2a8a3; --line: #2d312e; --card: #1b1e1c; --accent: #5cc694; --warn: #e0b45c; --bad: #ef8a80; --code: #222623; } }
+:root[data-theme="dark"] { --bg: #141615; --ink: #e8eae6; --dim: #a2a8a3; --line: #2d312e; --card: #1b1e1c; --accent: #5cc694; --warn: #e0b45c; --bad: #ef8a80; --code: #222623; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 1.9rem; margin: 8px 0 4px; } h2 { font-size: 1.3rem; margin: 36px 0 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+p, li { max-width: 72ch; } .lead { font-size: 1.1rem; } .dim { color: var(--dim); }
+nav { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .92rem; margin: 12px 0 0; } nav a { color: var(--accent); }
+a { color: var(--accent); }
+code, pre { font: .88rem/1.45 ui-monospace, "Cascadia Code", Menlo, monospace; background: var(--code); border-radius: 6px; }
+code { padding: 1px 5px; } pre { padding: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+table { border-collapse: collapse; width: 100%; font-size: .93rem; } th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tablewrap { overflow-x: auto; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+.ok { color: var(--accent); font-weight: 600; } .no { color: var(--bad); font-weight: 600; } .warn { color: var(--warn); }
+ol.steps li { margin: 6px 0; }
+.trace .step { border-left: 3px solid var(--accent); padding: 6px 12px; margin: 10px 0; } .trace .step.err { border-color: var(--warn); }
+.trace .h { font-weight: 600; } .trace pre { margin: 6px 0 0; max-height: 220px; overflow: auto; }
+svg { width: 100%; height: auto; display: block; } svg text { fill: var(--ink); font: 13px system-ui, sans-serif; } svg .box { fill: var(--card); stroke: var(--line); } svg .hl { stroke: var(--accent); stroke-width: 2; } svg .arr { stroke: var(--dim); stroke-width: 1.5; fill: none; } svg .small { fill: var(--dim); font-size: 11px; }
+details { margin: 8px 0; } summary { cursor: pointer; font-weight: 600; }
+footer { margin-top: 48px; font-size: .88rem; color: var(--dim); }
+button.theme { float: right; background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+<button class="theme" id="theme" type="button" aria-label="Switch light or dark">Light / dark</button>
+<h1>fallcore-mcp</h1>
+<p class="lead"><strong>Your own model, as tools an AI agent can call.</strong> Add it to Claude Code, Cursor, Cline or Windsurf.
+The agent gets eight tools that talk to <em>your</em> model, either through a FallCore proxy (local model first, a frontier model only when the
+proxy falls through, every call in the proxy's log) or straight to plain Ollama. It is free and MIT-licensed, and it is tested end to end.</p>
+<nav aria-label="On this page"><a href="#start">Start here</a><a href="#how">How it works</a><a href="#run">A real run</a><a href="#tools">The tools</a><a href="#blueprint">Blueprint</a><a href="#adopt">Adoption</a><a href="#business">For business</a><a href="#faq">Buyer questions</a><a href="#paper">Why this exists</a></nav>
+
+<h2 id="start">Start here</h2>
+<ol class="steps">
+<li><strong>Have a model running.</strong> Plain <a href="https://ollama.com">Ollama</a> is enough to start (for example <code>ollama pull llama3.2:1b</code>). For the log, the cost counts and local-first routing, run a <a href="https://github.com/sjgant80-hub/fallcore">FallCore</a> proxy in front of it.</li>
+<li><strong>Add the server to your agent.</strong> In Claude Code:<pre>claude mcp add fallcore -s user --transport stdio -- npx -y github:sjgant80-hub/fallcore-mcp</pre>It installs from GitHub; it is not on npm.</li>
+<li><strong>Tell it where your model is,</strong> if it is not plain Ollama on this machine, and which model to use:<pre>FALLCORE_ENDPOINT=http://localhost:11434
+FALLCORE_MODEL=llama3.2:1b</pre></li>
+<li><strong>Ask your agent</strong> to use the fallcore tools: "list the models", "ask the local model …".</li>
+</ol>
+
+<h2 id="how">How it works</h2>
+<svg viewBox="0 0 860 210" role="img" aria-labelledby="flow-t flow-d">
+<title id="flow-t">How a call travels</title>
+<desc id="flow-d">The AI agent calls a tool; fallcore-mcp turns it into an HTTP request to your endpoint; the FallCore proxy answers on the local model and logs the call, or plain Ollama answers; three factory tools go to the hosted FallCore Factory instead.</desc>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<rect class="box" x="10" y="60" width="160" height="70" rx="8"/><text x="90" y="90" text-anchor="middle">Your AI agent</text><text class="small" x="90" y="110" text-anchor="middle">Claude Code, Cursor…</text>
+<rect class="box hl" x="240" y="60" width="170" height="70" rx="8"/><text x="325" y="90" text-anchor="middle">fallcore-mcp</text><text class="small" x="325" y="110" text-anchor="middle">8 tools, over stdio</text>
+<rect class="box" x="480" y="15" width="190" height="70" rx="8"/><text x="575" y="45" text-anchor="middle">FallCore proxy</text><text class="small" x="575" y="65" text-anchor="middle">local first · logs every call</text>
+<rect class="box" x="480" y="110" width="190" height="60" rx="8"/><text x="575" y="138" text-anchor="middle">or plain Ollama</text><text class="small" x="575" y="156" text-anchor="middle">chat and models only</text>
+<rect class="box" x="720" y="15" width="130" height="70" rx="8"/><text x="785" y="45" text-anchor="middle">your model</text><text class="small" x="785" y="65" text-anchor="middle">on your machine</text>
+<rect class="box" x="240" y="160" width="170" height="40" rx="8"/><text x="325" y="185" text-anchor="middle" class="small">FallCore Factory (hosted)</text>
+<path class="arr" d="M170,95 L238,95" marker-end="url(#a)"/><path class="arr" d="M410,85 L478,55" marker-end="url(#a)"/><path class="arr" d="M410,105 L478,138" marker-end="url(#a)"/><path class="arr" d="M670,50 L718,50" marker-end="url(#a)"/><path class="arr" d="M325,130 L325,158" marker-end="url(#a)"/>
+<text class="small" x="204" y="86" text-anchor="middle">MCP</text><text class="small" x="444" y="62" text-anchor="middle">HTTP</text><text class="small" x="372" y="148">3 factory tools</text>
+</svg>
+<ol>
+<li>Your agent calls a tool, for example <code>chat</code> with a prompt.</li>
+<li>fallcore-mcp turns it into an HTTP request to <code>FALLCORE_ENDPOINT</code>. For <code>chat</code>, that is an Anthropic-style <code>POST /v1/messages</code>.</li>
+<li>A FallCore proxy answers on the local model first, falls through to a frontier model only when it must, and writes the call to its log. Plain Ollama answers the same request itself.</li>
+<li>The answer comes back to the agent as the tool's result: the text, plus which tier answered and what it cost, when the proxy says.</li>
+<li>If the endpoint does not serve a tool, the agent gets an error result that says why. For example: "health needs the FallCore proxy; plain Ollama does not serve it".</li>
+</ol>
+
+<h2 id="run">A real run, recorded</h2>
+<p class="dim" id="run-what">Loading the recorded run…</p>
+<div class="trace" id="trace"></div>
+
+<h2 id="tools">The eight tools</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Tool</th><th>What it does</th><th>Plain Ollama</th><th>FallCore proxy</th></tr></thead>
+<tbody>
+<tr><td><code>chat</code></td><td>Sends a message. Returns the text, plus the tier and cost when the proxy answers.</td><td class="ok">yes</td><td class="ok">yes</td></tr>
+<tr><td><code>models</code></td><td>The models on offer.</td><td class="ok">yes</td><td class="ok">yes</td></tr>
+<tr><td><code>health</code></td><td>The proxy's status and its backend.</td><td class="no">no (404, explained)</td><td class="ok">yes</td></tr>
+<tr><td><code>stats</code></td><td>The proxy's own counts: local against frontier calls, tokens, cost.</td><td class="no">no</td><td class="ok">yes</td></tr>
+<tr><td><code>recent_logs</code></td><td>The last 50 prompt and response pairs the proxy logged.</td><td class="no">no</td><td class="ok">yes, with the admin key</td></tr>
+<tr><td><code>forge_stack</code></td><td>Asks the hosted FallCore Factory to build a branded deployment. Returns its metadata.</td><td colspan="2">the factory (it sleeps on a free tier; the first call can take about a minute)</td></tr>
+<tr><td><code>factory_tiers</code></td><td>The factory's tiers.</td><td colspan="2">the factory</td></tr>
+<tr><td><code>factory_verticals</code></td><td>The factory's industry presets.</td><td colspan="2">the factory</td></tr>
+</tbody></table></div>
+
+<h2 id="blueprint">Blueprint</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>File</th><th>What it is</th><th>Checked by</th></tr></thead>
+<tbody>
+<tr><td><code>src/core.js</code></td><td>The eight tools, pure: each builds its request and reads its answer, with the network passed in.</td><td id="bp-core">…</td></tr>
+<tr><td><code>src/server.js</code></td><td>Wires the tools to the MCP SDK over stdio. It writes nothing for people on stdout, which carries the protocol.</td><td>the end-to-end test: the real server, a fake FallCore</td></tr>
+<tr><td><code>bin/cli.js</code></td><td>The command <code>npx</code> runs.</td><td>the end-to-end test</td></tr>
+<tr><td><code>test/</code></td><td>Every tool against a fake client, and the real server over stdio.</td><td>CI on every push</td></tr>
+<tr><td><code>tools/trace.js</code></td><td>Records the real run shown above.</td><td>run by hand; the page reads its record</td></tr>
+</tbody></table></div>
+
+<h2 id="adopt">Adoption: rolling it out in a team</h2>
+<ol>
+<li><strong>Start on one laptop with plain Ollama.</strong> <code>chat</code> and <code>models</code> work at once. It shows whether your agents can do useful work on a local model at all.</li>
+<li><strong>Put a FallCore proxy in front</strong> when you want the record. Every agent call is logged, routed local first, and counted (<code>stats</code>).</li>
+<li><strong>Point everyone's agent at the one proxy</strong> (<code>FALLCORE_ENDPOINT</code>, on your network). The model, the log and the routing rules then live in one place you control.</li>
+<li><strong>Review the log</strong> (<code>recent_logs</code>, admin key) to see what agents ask your model, and what fell through to a frontier model.</li>
+</ol>
+
+<h2 id="business">For business: the straight answers</h2>
+<div class="card"><strong>What it costs.</strong> The software is MIT: no licence fee. You pay for the machine your model runs on, and for any frontier calls the proxy falls through to, at your provider's own rates. This page computes no saving: that depends on your traffic, and the proxy's <code>stats</code> tool counts it from your own calls.</div>
+<div class="card"><strong>Where your data goes.</strong> <code>chat</code>, <code>models</code>, <code>health</code>, <code>stats</code> and <code>recent_logs</code> go only to the endpoint you set. With a local endpoint, that is your own machine or network. The three factory tools call the hosted FallCore Factory at <code>fallcore-factory.onrender.com</code>; leave them unused if nothing may leave. A frontier fallthrough, when the proxy makes one, sends that prompt to the provider whose key you gave it.</div>
+<div class="card"><strong>Security.</strong> It runs as a local process your agent starts, and listens on no port. Its one direct dependency is the official MCP SDK (which brings its own). Keys come from environment variables. It never writes them anywhere. An endpoint with a user and password in its URL is refused (Node's fetch will not send one), and the refusal never shows the password. Protect a remote proxy at the network or with the proxy's own keys. The code is under 200 lines; read it before you run it.</div>
+<div class="card"><strong>Compliance.</strong> It does not make any use compliant. What it gives you is a single place, the proxy's log, where agent calls to your model are recorded. Whether that meets your obligations is yours to judge.</div>
+<div class="card"><strong>Support and ownership.</strong> Supplied by <a href="https://www.ai-nativesolutions.com/">AI Native Solutions</a>. Start through that site. Support, any service levels, warranty and liability are agreed per deployment, in that deployment's agreement. The software keeps working without us: it is MIT, and the source is yours to keep.</div>
+<div class="card"><strong>Risks, answered straight.</strong>
+<ul>
+<li><em>The answer quality is the model's.</em> A small local model answers worse than a frontier one. Try it on your own work first. The run above used a 1B model, and its answer shows it.</li>
+<li><em>The factory is hosted on a free tier.</em> It can be slow to wake, or down. Nothing else depends on it.</li>
+<li><em>Plain Ollama keeps no log of agent calls.</em> The record needs the FallCore proxy.</li>
+</ul></div>
+
+<h2 id="faq">Questions buyers asked</h2>
+<p class="dim">A CTO and a bank compliance officer read this page cold (a local model played each) and listed what it left open. The answers:</p>
+<details><summary>Is the traffic encrypted?</summary><p>fallcore-mcp adds no encryption of its own: it speaks to the endpoint you give it, over HTTP or HTTPS as that URL says. Over the network, give it an <code>https://</code> endpoint, or keep the proxy inside your network. The link between your agent and fallcore-mcp is a local pipe (stdio) between two processes on one machine.</p></details>
+<details><summary>What does it store?</summary><p>Nothing. It writes no file and keeps no state between calls. The FallCore proxy keeps the log, when you use it, under its own retention settings.</p></details>
+<details><summary>What does it need to run?</summary><p>Node.js 20 or later, on the machine where your agent runs. Your model's hardware needs are your model's (see Ollama or the FallCore proxy). Its only direct dependency is the official MCP SDK.</p></details>
+<details><summary>How do we pin a version and update it?</summary><p>Install from a tag, not from the latest commit: <code>npx -y github:sjgant80-hub/fallcore-mcp#v0.2.0</code>. You update by changing the tag, after reading what changed. The tests and the witness gate run in CI on every commit.</p></details>
+<details><summary>What happens when something fails?</summary><p>Every failure comes back to the agent as an error result with the reason, never a crash. That covers an endpoint that is down, a 404 for a tool the endpoint does not serve, a missing prompt and an unknown tool. A call to your endpoint gives up after 60 seconds, a factory call after 90.</p></details>
+<details><summary>GDPR, the FCA, our own policies?</summary><p>fallcore-mcp decides nothing about your data: it passes each prompt to the endpoint you configured and returns the answer. Which personal data reaches the model, where that model runs, and what the proxy logs are your deployment's choices. Assess them as you would any internal system. A local endpoint keeps prompts on your own machines; a frontier fallthrough does not, so set the proxy's routing to match your policy.</p></details>
+<details><summary>Does it scale to many agents?</summary><p>Each agent starts its own copy. It holds no state, so copies do not interfere. How many calls you can serve is your endpoint's capacity, not this server's.</p></details>
+
+<h2 id="paper">Why this exists</h2>
+<p>An AI agent that can call tools will call someone's model, and most agents default to a rented one. An MCP server is the agent's own way of reaching a tool, so putting your own model behind one makes it the easy path. Behind a FallCore proxy that model answers locally first and keeps a log of what agents asked it. The server itself does no thinking and keeps nothing: it is a thin, tested translation between the agent's tool calls and your endpoint's HTTP.</p>
+<p>It completes a layering, from the operating system up to the agent: an OS call, a command, a command line, an API in front of it, and the MCP that lets an AI agent call the API. The layering is Thomas Frumkin's.</p>
+
+<footer>
+<p>MIT · © Simon Gant · built by Kar for <a href="https://www.ai-nativesolutions.com/">AI Native Solutions</a> · source <a href="https://github.com/sjgant80-hub/fallcore-mcp">github.com/sjgant80-hub/fallcore-mcp</a> · <a href="llms.txt">llms.txt</a></p>
+</footer>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (_) { /* no storage */ }
+  $('theme').addEventListener('click', () => {
+    const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('theme', document.documentElement.dataset.theme); } catch (_) { /* no storage */ }
+  });
+  const json = (p) => fetch(p, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(p + ' ' + r.status); return r.json(); });
+  json('receipts/core-gate.json').then((g) => {
+    $('bp-core').innerHTML = '<span class="' + (g.clean ? 'ok' : 'no') + '">witness: ' + esc(g.killed) + ' of ' + esc(g.total) + ' mutants killed</span>' + (g.ignored && g.ignored.length ? ', ' + esc(g.ignored.length) + ' exempt' : ', none exempt') + ' (<a href="receipts/core-gate.json">receipt</a>)';
+  }).catch(() => { $('bp-core').textContent = 'the gate receipt could not be read'; });
+  json('receipts/traced-run.json').then((r) => {
+    $('run-what').innerHTML = 'Recorded ' + esc(String(r.ran).slice(0, 10)) + ' by <code>tools/trace.js</code>: the real server over stdio, against ' + esc(r.endpointKind) + ', model <code>' + esc(r.model) + '</code>. Each step shows what the agent sent and what came back (<a href="receipts/traced-run.json">the record</a>).';
+    $('trace').innerHTML = r.steps.map((s) => {
+      const name = s.sent.params && s.sent.params.name ? s.sent.method + ' · ' + s.sent.params.name : s.sent.method;
+      let got = s.got;
+      if (got && Array.isArray(got.content) && got.content[0] && typeof got.content[0].text === 'string') { try { got = JSON.parse(got.content[0].text); } catch (_) { got = got.content[0].text; } }
+      if (s.sent.method === 'tools/list' && got && Array.isArray(got.tools)) got = got.tools.map((t) => t.name);
+      if (s.sent.method === 'initialize' && got && got.serverInfo) got = got.serverInfo;
+      const err = s.got && s.got.isError === true;
+      return '<div class="step' + (err ? ' err' : '') + '"><div class="h">' + esc(name) + ' <span class="dim">· ' + esc(s.ms) + ' ms' + (err ? ' · an error result, as designed' : '') + '</span></div>'
+        + (s.sent.params && s.sent.params.arguments && Object.keys(s.sent.params.arguments).length ? '<div class="dim">sent: <code>' + esc(JSON.stringify(s.sent.params.arguments)) + '</code></div>' : '')
+        + '<pre>' + esc(typeof got === 'string' ? got : JSON.stringify(got, null, 2)) + '</pre></div>';
+    }).join('');
+  }).catch(() => { $('run-what').textContent = 'The recorded run could not be read.'; });
+})();
+</script>
+</body>
+</html>

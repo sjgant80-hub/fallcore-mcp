@@ -1,0 +1,30 @@
+name: ci
+# Every push: the tests (the eight tools against a fake client, and the real server over stdio against a fake FallCore),
+# then witness gates the core (every mutant must be killed, no exemptions), then the fuzz battery on every export.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-and-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: install (the MCP SDK only)
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: the tests, end to end included
+        run: npm test
+      - name: witness gates src/core.js (pinned v0.7; refuse anything short of clean)
+        run: |
+          git clone --depth 1 --branch v0.7 https://github.com/sjgant80-hub/witness.git ../witness
+          node ../witness/witness.mjs mutate src/core.js --cap 2000 --timeout 120000 --baseline receipts/empty-baseline.json --test node --test test/core.test.js | tee gate.json
+          grep -q '"clean": true' gate.json || { echo "::error::mutants survived in src/core.js"; exit 1; }
+          grep -q '"capped": false' gate.json || { echo "::error::the gate was capped"; exit 1; }
+      - name: and fuzzes every export (hostile input must never throw)
+        run: for f in config chatBody chatResult forgeBody forgeResult needsProxy call; do node ../witness/witness.mjs fuzz src/core.js $f; done

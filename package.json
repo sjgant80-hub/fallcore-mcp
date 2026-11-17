@@ -1,20 +1,45 @@
 {
   "name": "fallcore-mcp",
-  "version": "0.1.0",
-  "description": "◊·κ=1 · FallCore MCP server · expose any FallCore deployment as native tools in Claude Code, Cursor, Cline, Windsurf. The 5th turtle: mcp(api). Lets AI call the on-prem brain remotely with full accountability trail.",
+  "version": "0.2.0",
+  "description": "FallCore MCP server: your FallCore proxy (or plain Ollama) as eight tools in Claude Code, Cursor, Cline and Windsurf, so an AI agent calls your own model with the proxy keeping the log.",
   "main": "src/server.js",
   "bin": {
     "fallcore-mcp": "bin/cli.js"
   },
   "scripts": {
-    "start": "node bin/cli.js"
+    "start": "node bin/cli.js",
+    "test": "node --test test/core.test.js test/e2e.test.js test/page.test.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4"
   },
   "license": "MIT",
-  "keywords": ["mcp", "mcp-server", "model-context-protocol", "fallcore", "sovereign-ai", "on-prem", "anthropic", "ollama", "claude", "cursor", "cline", "windsurf"],
-  "repository": { "type": "git", "url": "https://github.com/sjgant80-hub/fallcore-mcp" },
-  "homepage": "https://sjgant80-hub.github.io/fallcore/"
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "fallcore",
+    "sovereign-ai",
+    "on-prem",
+    "anthropic",
+    "ollama",
+    "claude",
+    "cursor",
+    "cline",
+    "windsurf"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sjgant80-hub/fallcore-mcp"
+  },
+  "homepage": "https://sjgant80-hub.github.io/fallcore/",
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
 }

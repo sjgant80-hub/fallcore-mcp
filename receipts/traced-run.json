@@ -1,0 +1,215 @@
+{
+ "kind": "fallcore-mcp-traced-run",
+ "ran": "2026-11-17T15:39:57.488Z",
+ "endpoint": "http://localhost:11434",
+ "endpointKind": "plain Ollama on the machine that ran it",
+ "model": "llama3.2:1b",
+ "server": "fallcore-mcp 0.2.0 · endpoint http://localhost:11434",
+ "steps": [
+  {
+   "sent": {
+    "method": "initialize",
+    "params": {
+     "protocolVersion": "2025-06-18",
+     "capabilities": {},
+     "clientInfo": {
+      "name": "trace",
+      "version": "0"
+     }
+    }
+   },
+   "got": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {
+     "tools": {}
+    },
+    "serverInfo": {
+     "name": "fallcore-mcp",
+     "version": "0.2.0"
+    }
+   },
+   "ms": 573
+  },
+  {
+   "sent": {
+    "method": "tools/list",
+    "params": {}
+   },
+   "got": {
+    "tools": [
+     {
+      "name": "chat",
+      "description": "Send a message to the FallCore proxy (Anthropic-API-compatible), which answers on the local model first and falls through to a frontier model only when it must. Returns the text, the tier that answered and, from the proxy, its cost. Plain Ollama answers this too.",
+      "inputSchema": {
+       "type": "object",
+       "properties": {
+        "prompt": {
+         "type": "string",
+         "description": "The user message"
+        },
+        "system": {
+         "type": "string",
+         "description": "Optional system prompt"
+        },
+        "model": {
+         "type": "string",
+         "description": "Model id. Default: FALLCORE_MODEL, else claude-sonnet-5-5 (the FallCore proxy answers locally first whatever is named; plain Ollama needs one of its own models)"
+        },
+        "max_tokens": {
+         "type": "number",
+         "description": "Default 2048"
+        },
+        "force_frontier": {
+         "type": "boolean",
+         "description": "Ask the proxy to skip the local model"
+        }
+       },
+       "required": [
+        "prompt"
+       ]
+      }
+     },
+     {
+      "name": "health",
+      "description": "Status of the FallCore proxy and its local model backend. Needs the FallCore proxy (plain Ollama has no /health).",
+      "inputSchema": {
+       "type": "object",
+       "properties": {}
+      }
+     },
+     {
+      "name": "stats",
+      "description": "The proxy's own counts: local against frontier calls, tokens, cost, by tool and by model. Needs the FallCore proxy.",
+      "inputSchema": {
+       "type": "object",
+       "properties": {}
+      }
+     },
+     {
+      "name": "models",
+      "description": "The models this deployment offers (the proxy's list, or Ollama's own).",
+      "inputSchema": {
+       "type": "object",
+       "properties": {}
+      }
+     },
+     {
+      "name": "recent_logs",
+      "description": "The last 50 prompt and response pairs the proxy logged (needs the admin key, FALLCORE_ADMIN_KEY). Needs the FallCore proxy.",
+      "inputSchema": {
+       "type": "object",
+       "properties": {}
+      }
+     },
+     {
+      "name": "forge_stack",
+      "description": "Ask the FallCore Factory to build a branded FallCore deployment for a company. Returns the forge's metadata (id, size); the ZIP itself comes from the factory's own page.",
+      "inputSchema": {
+       "type": "object",
+       "properties": {
+        "company": {
+         "type": "string",
+         "description": "Company name"
+        },
+        "vertical": {
+         "type": "string",
+         "description": "legal | procurement | healthcare | finance | fitness | education | manufacturing | realestate | hospitality | agency | ngo | other"
+        },
+        "tier": {
+         "type": "string",
+         "description": "lite | pro | sovereign | enterprise"
+        },
+        "frontier_spend_gbp": {
+         "type": "number",
+         "description": "What they spend on frontier AI APIs a year, in pounds (the factory uses it in its own projection)"
+        },
+        "brand_primary": {
+         "type": "string",
+         "description": "Hex colour, e.g. #5078DC"
+        }
+       },
+       "required": [
+        "company"
+       ]
+      }
+     },
+     {
+      "name": "factory_tiers",
+      "description": "The FallCore Factory's tiers and their hardware.",
+      "inputSchema": {
+       "type": "object",
+       "properties": {}
+      }
+     },
+     {
+      "name": "factory_verticals",
+      "description": "The FallCore Factory's industry presets.",
+      "inputSchema": {
+       "type": "object",
+       "properties": {}
+      }
+     }
+    ]
+   },
+   "ms": 3
+  },
+  {
+   "sent": {
+    "method": "tools/call",
+    "params": {
+     "name": "models",
+     "arguments": {}
+    }
+   },
+   "got": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"count\":11,\"ids\":\"withheld: the names are this machine's own models\"}"
+     }
+    ]
+   },
+   "ms": 283
+  },
+  {
+   "sent": {
+    "method": "tools/call",
+    "params": {
+     "name": "chat",
+     "arguments": {
+      "prompt": "In one sentence: why would a company run its AI model on its own machine?",
+      "max_tokens": 80
+     }
+    }
+   },
+   "got": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\n  \"text\": \"A company might run its AI model on its own machine to optimize performance, reduce costs, and improve scalability, by utilizing the resources and infrastructure available on the company's own premises.\",\n  \"tier\": \"unknown\",\n  \"model\": \"llama3.2:1b\",\n  \"confidence\": null,\n  \"ms\": null,\n  \"saved_usd\": null,\n  \"cost_usd\": null,\n  \"usage\": {\n    \"input_tokens\": 1,\n    \"cache_read_input_tokens\": 41,\n    \"output_tokens\": 37\n  }\n}"
+     }
+    ]
+   },
+   "ms": 2524
+  },
+  {
+   "sent": {
+    "method": "tools/call",
+    "params": {
+     "name": "health",
+     "arguments": {}
+    }
+   },
+   "got": {
+    "content": [
+     {
+      "type": "text",
+      "text": "{\n  \"error\": \"HTTP 404 from http://localhost:11434/health: 404 page not found\",\n  \"hint\": \"health needs the FallCore proxy at FALLCORE_ENDPOINT; plain Ollama does not serve it (chat and models work against Ollama directly)\",\n  \"tool\": \"health\",\n  \"endpoint\": \"http://localhost:11434\"\n}"
+     }
+    ],
+    "isError": true
+   },
+   "ms": 10
+  }
+ ]
+}

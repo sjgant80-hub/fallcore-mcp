@@ -1,130 +1,71 @@
 # fallcore-mcp
 
-**The 5th turtle. `mcp(api)` for FallCore.**
+**▶ Live: https://sjgant80-hub.github.io/fallcore-mcp/** (what it is, how to start, how it works, what it does not do)
 
-MCP server that exposes any FallCore deployment as native tools in Claude Code / Cursor / Cline / Windsurf. Lets the AI call the on-prem brain directly — with full audit trail in the FallCore logs.
-
-Per Thomas's stack:
-
-```
-sys(params)     — the OS does a thing                       L7 ASS
-cmd(sys)        — a command triggers the OS                 L4 BLOOM
-cli(cmd)        — a command line assembles commands         L2 SWARM
-api(cli)        — an API hosts the CLI to a port            L3 CASCADE (the FallCore proxy)
-mcp(api)        — MCP lets AI call the API remotely         ← this package
-```
-
----
-
-## Install (Claude Code)
+An MCP server that gives an AI agent (Claude Code, Cursor, Cline, Windsurf) eight tools for **your own** model. Point it
+at a [FallCore](https://github.com/sjgant80-hub/fallcore) proxy and the agent's calls go through the proxy: local model
+first, a frontier model only when the proxy falls through, and every call in the proxy's log. Point it at plain
+[Ollama](https://ollama.com) and `chat` and `models` work straight away.
 
 ```bash
 claude mcp add fallcore -s user --transport stdio -- npx -y github:sjgant80-hub/fallcore-mcp
 ```
 
-Verify:
+## The eight tools, and what each needs
 
-```bash
-claude mcp list
-# fallcore: npx -y github:sjgant80-hub/fallcore-mcp - ✓ Connected
-```
+| Tool | What it does | Plain Ollama | FallCore proxy |
+|---|---|---|---|
+| `chat` | Sends a message (Anthropic Messages format) and returns the text, plus the proxy's tier and cost when the proxy answers | ✓ (name one of your Ollama models) | ✓ |
+| `models` | The models on offer | ✓ | ✓ |
+| `health` | The proxy's status and its backend | — (404) | ✓ |
+| `stats` | The proxy's own counts: local against frontier calls, tokens, cost | — (404) | ✓ |
+| `recent_logs` | The last 50 prompt and response pairs the proxy logged | — | ✓ (admin key) |
+| `forge_stack` | Asks the [FallCore Factory](https://github.com/sjgant80-hub/fallcore-factory) to build a branded deployment; returns its metadata | n/a | n/a (the factory) |
+| `factory_tiers` | The factory's tiers | n/a | n/a (the factory) |
+| `factory_verticals` | The factory's industry presets | n/a | n/a (the factory) |
 
-For Cursor / Cline / Windsurf — edit `mcp.json`:
+A tool the endpoint does not serve comes back as an error result that says so ("health needs the FallCore proxy…"),
+never a crash. The factory runs on a free hosting tier that sleeps: its first call can take about a minute, and its
+tools wait up to 90 seconds.
 
-```json
-{
-  "mcpServers": {
-    "fallcore": {
-      "command": "npx",
-      "args": ["-y", "github:sjgant80-hub/fallcore-mcp"]
-    }
-  }
-}
-```
+## Settings
 
----
+| Variable | Default | What for |
+|---|---|---|
+| `FALLCORE_ENDPOINT` | `http://localhost:11434` | the FallCore proxy, or plain Ollama (no user or password in the URL: Node's fetch refuses one, and the error never shows it) |
+| `FALLCORE_MODEL` | `claude-sonnet-5-5` | the chat model when a call names none (with plain Ollama, set one of your models, e.g. `qwen2.5:7b`) |
+| `FALLCORE_ADMIN_KEY` | none | `recent_logs` |
+| `ANTHROPIC_API_KEY` | none | passed to the proxy on `chat`, for its frontier fallthrough |
+| `FALLCORE_FACTORY` | `https://fallcore-factory.onrender.com` | the factory |
 
-## Config
-
-Set these env vars before launching (or via your MCP host's env config):
-
-```bash
-FALLCORE_ENDPOINT=http://localhost:11434       # default · your FallCore proxy URL
-FALLCORE_ADMIN_KEY=fc_admin_...                # optional · for recent_logs tool
-ANTHROPIC_API_KEY=sk-ant-...                   # optional · passed through on chat calls (frontier fallthrough)
-```
-
-If running FallCore on another host (e.g. company VPN):
+For Cursor, Cline or Windsurf, in `mcp.json`:
 
 ```json
-{
-  "mcpServers": {
-    "fallcore": {
-      "command": "npx",
-      "args": ["-y", "github:sjgant80-hub/fallcore-mcp"],
-      "env": {
-        "FALLCORE_ENDPOINT": "https://ai.acme.internal"
-      }
-    }
-  }
-}
+{ "mcpServers": { "fallcore": { "command": "npx", "args": ["-y", "github:sjgant80-hub/fallcore-mcp"],
+  "env": { "FALLCORE_ENDPOINT": "http://localhost:11434", "FALLCORE_MODEL": "qwen2.5:7b" } } } }
 ```
 
----
+## How it is checked
 
-## Tools exposed
+- **The tests** (`npm test`):
+  - every tool against a fake client: the URL it calls, what it sends, what it answers;
+  - the real server over stdio (`bin/cli.js`) against a fake FallCore on a local port: `initialize`, the eight tools, `chat` and `models` answered, a 404 explained.
+- **[witness](https://github.com/sjgant80-hub/witness)** gates `src/core.js`: every one of its 37 mutants is killed by the tests, with no exemptions (`receipts/core-gate.json`). Its fuzz battery finds no export that throws.
+- **CI** runs all of it on every push (`.github/workflows/ci.yml`, witness pinned to v0.7).
 
-| Tool | What it does |
-|---|---|
-| `chat` | Send a message · cascades local-first · returns text + tier + cost |
-| `health` | FallCore + Ollama status + recent stats |
-| `stats` | Full ROI dashboard (local vs frontier ratio, USD saved, by-tool) |
-| `models` | Local + frontier models on this deployment |
-| `recent_logs` | Last 50 prompt/response pairs (admin key required) |
-| `forge_stack` | Mint a new branded FallCore for a customer via FallCore Factory |
-| `factory_tiers` | List factory tiers (hardware specs) |
-| `factory_verticals` | List factory vertical presets |
+## What it does not do
 
----
+- It does no thinking of its own. The model behind the endpoint does.
+- It keeps no log itself. The FallCore proxy keeps it, when you use the proxy. With plain Ollama there is no log beyond Ollama's own.
+- It does not make anything compliant. Whether your use of a model meets your obligations is yours to judge.
+- It does not download the factory's ZIP. `forge_stack` returns the forge's metadata; the ZIP comes from the factory's own page.
 
-## Example session in Claude Code
+## Layout
 
-```
-You: Use the fallcore tools — what's the current state of my deployment?
+- `src/core.js`: the tools, pure, with the network injected.
+- `src/server.js`: wires them to the MCP SDK over stdio.
+- `bin/cli.js`: the command.
 
-Claude: [calls fallcore_health]
-   FallCore at http://localhost:11434 is up. Ollama running qwen2.5:32b.
-   Local-to-frontier ratio: 73%. $34.20 saved this week vs raw frontier.
+The layering it completes, from the operating system up to the agent (sys → cmd → cli → api → mcp), is Thomas Frumkin's.
 
-You: Reason about the trade-offs of LoRA vs RAG for our compliance use case · use the local model
-
-Claude: [calls fallcore_chat with the prompt]
-   [Response from local Qwen2.5-32B · tier: local · 2.3s · saved $0.04]
-   The trade-off comes down to ...
-```
-
----
-
-## Why the MCP layer matters
-
-The MCP isn't doing the cognition. Ollama is. The MCP exists for **accountability**:
-
-- Every call from your AI agent is logged in FallCore's JSONL
-- Every fine-tune cycle can reference back to which agent triggered which queries
-- The audit trail is unbroken: AI agent → MCP → FallCore proxy → local model
-- For regulated industries this is the **only** way to use external AI agents on your data legally
-
-> "API server on training wheels. Doesn't want to get sued." — Thomas
-
-The MCP is the wheels. The brain is downstairs.
-
----
-
-## Repo
-
-https://github.com/sjgant80-hub/fallcore-mcp
-
-Part of the [Fall* estate](https://github.com/sjgant80-hub) · pairs with [FallCore](https://github.com/sjgant80-hub/fallcore) + [FallCore Factory](https://github.com/sjgant80-hub/fallcore-factory).
-
-MIT licensed.
-
+MIT · © Simon Gant · built by Kar for [AI Native Solutions](https://www.ai-nativesolutions.com/)
